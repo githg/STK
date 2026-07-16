@@ -1,8 +1,20 @@
 /* style.css */
 
-/* iOS Safari overscroll bounce fix */
-body {
-    overscroll-behavior-y: none;
+/* iOS Safari overscroll bounce fix & native app behaviors */
+html, body {
+    overscroll-behavior: none; /* Pull to refresh / bounce disable */
+    touch-action: pan-x pan-y; /* Disables pinch zoom but allows scroll */
+    -webkit-text-size-adjust: 100%; /* Prevent font scaling */
+    -webkit-tap-highlight-color: transparent; /* Remove blue tap highlight on Android */
+    -webkit-touch-callout: none; /* Disable long press popup menu on iOS */
+    -webkit-user-select: none; /* Safari */
+    user-select: none; /* Standard */
+}
+
+/* Re-enable text selection for input fields only */
+input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
 }
 
 /* Custom visual cues for synced vs unsynced items */
@@ -31,7 +43,4 @@ input[type="number"] {
     transform: translate(-50%, 0) !important;
 }
 
-/* Pull to refresh disable */
-html {
-    overscroll-behavior: none;
-}
+
