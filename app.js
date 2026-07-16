@@ -23,6 +23,7 @@ const inputNumber = document.getElementById('input-number');
 const inputName = document.getElementById('input-name');
 const inputQty = document.getElementById('input-qty');
 const itemList = document.getElementById('item-list');
+const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 const toastEl = document.getElementById('toast');
 
 // State
@@ -231,6 +232,90 @@ inputName.addEventListener('keydown', (e) => {
     }
 });
 // inputQty enter key is naturally handled by the form submit
+
+// Autocomplete Logic
+function updateAutocomplete() {
+    if (!autocompleteDropdown) return;
+    
+    const numQuery = inputNumber.value.trim().toLowerCase();
+    const nameQuery = inputName.value.trim().toLowerCase();
+
+    // Hide if both empty or if we are actively editing an existing item
+    if ((!numQuery && !nameQuery) || editingItemId) {
+        autocompleteDropdown.classList.add('hidden');
+        return;
+    }
+
+    // Extract unique pairs
+    const uniquePairs = [];
+    const seen = new Set();
+    for (const item of stockItems) {
+        const key = `${item.number.toLowerCase()}|${(item.name || '').toLowerCase()}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniquePairs.push({ number: item.number, name: item.name || '' });
+        }
+    }
+
+    // Filter matches
+    const matches = uniquePairs.filter(pair => {
+        const matchNum = numQuery ? pair.number.toLowerCase().includes(numQuery) : true;
+        const matchName = nameQuery ? pair.name.toLowerCase().includes(nameQuery) : true;
+        const exactMatch = (pair.number.toLowerCase() === numQuery && pair.name.toLowerCase() === nameQuery);
+        return matchNum && matchName && !exactMatch;
+    });
+
+    if (matches.length === 0) {
+        autocompleteDropdown.classList.add('hidden');
+        return;
+    }
+
+    // Render matches
+    autocompleteDropdown.innerHTML = '';
+    matches.slice(0, 8).forEach(match => {
+        const div = document.createElement('div');
+        div.className = "px-4 py-3 cursor-pointer hover:bg-blue-100 active:bg-blue-200 transition-colors flex items-center space-x-3";
+        
+        div.innerHTML = `
+            <span class="px-2 py-1 bg-slate-200 text-slate-800 font-mono font-bold rounded text-sm shrink-0 shadow-sm border border-slate-300"># ${escapeHtml(match.number)}</span>
+            <span class="text-blue-700 font-semibold truncate flex-1">${escapeHtml(match.name)}</span>
+        `;
+        
+        // Use mousedown to prevent input blur on click
+        div.addEventListener('mousedown', (e) => {
+            e.preventDefault(); 
+            inputNumber.value = match.number;
+            inputName.value = match.name;
+            autocompleteDropdown.classList.add('hidden');
+            inputQty.focus();
+        });
+        
+        // Also support touchstart for mobile responsiveness
+        div.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            inputNumber.value = match.number;
+            inputName.value = match.name;
+            autocompleteDropdown.classList.add('hidden');
+            inputQty.focus();
+        }, {passive: false});
+
+        autocompleteDropdown.appendChild(div);
+    });
+    
+    autocompleteDropdown.classList.remove('hidden');
+}
+
+inputNumber.addEventListener('input', updateAutocomplete);
+inputName.addEventListener('input', updateAutocomplete);
+inputNumber.addEventListener('focus', updateAutocomplete);
+inputName.addEventListener('focus', updateAutocomplete);
+
+// Hide autocomplete when clicking outside
+document.addEventListener('click', (e) => {
+    if (autocompleteDropdown && !autocompleteDropdown.contains(e.target) && e.target !== inputNumber && e.target !== inputName) {
+        autocompleteDropdown.classList.add('hidden');
+    }
+});
 
 // Entry Form Submit
 entryForm.addEventListener('submit', async (e) => {

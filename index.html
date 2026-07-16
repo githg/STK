@@ -85,24 +85,29 @@
         </header>
 
         <!-- Input Form (Sticky Top) -->
-        <div class="bg-white p-4 shadow-sm z-10 shrink-0">
+        <div class="bg-white p-4 shadow-md z-20 shrink-0 relative">
             <form id="entry-form" class="flex space-x-2">
                 <!-- Enter key flow: Number -> Name -> Qty -> Submit -->
                 <div class="flex-1 min-w-0">
                     <input type="text" id="input-number" name="stk_val_1" required placeholder="Number/Code *" autocomplete="new-password" autocorrect="off" spellcheck="false"
-                        class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg font-mono">
+                        class="w-full px-3 py-3 sm:py-4 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-lg sm:text-xl font-bold font-mono transition-all shadow-inner">
                 </div>
                 <div class="flex-1 min-w-0">
                     <input type="text" id="input-name" name="stk_val_2" placeholder="Brand/Design Name" autocomplete="new-password" autocorrect="off" spellcheck="false"
-                        class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg">
+                        class="w-full px-3 py-3 sm:py-4 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-lg sm:text-xl font-bold transition-all shadow-inner">
                 </div>
-                <div class="w-16 sm:w-20 shrink-0">
+                <div class="w-20 sm:w-24 shrink-0">
                     <input type="number" id="input-qty" name="stk_val_3" required placeholder="Qty *" autocomplete="new-password"
-                        class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg text-center font-bold">
+                        class="w-full px-2 py-3 sm:py-4 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-lg sm:text-xl text-center font-bold bg-blue-50 transition-all shadow-inner">
                 </div>
                 <!-- Hidden submit button for mobile keyboard "Go" functionality -->
                 <button type="submit" class="hidden">Submit</button>
             </form>
+
+            <!-- Autocomplete Suggestions Dropdown -->
+            <div id="autocomplete-dropdown" class="absolute left-4 right-4 top-[100%] mt-1 bg-slate-50 border-2 border-slate-200 shadow-2xl rounded-xl z-50 hidden max-h-56 overflow-y-auto divide-y divide-slate-200">
+                <!-- Suggestions injected here -->
+            </div>
         </div>
 
         <!-- List View (Scrollable) -->
