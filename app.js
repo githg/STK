@@ -236,73 +236,116 @@ inputName.addEventListener('keydown', (e) => {
 // Autocomplete Logic
 function updateAutocomplete() {
     if (!autocompleteDropdown) return;
+    if (editingItemId) {
+        autocompleteDropdown.classList.add('hidden');
+        return;
+    }
     
+    const activeEl = document.activeElement;
     const numQuery = inputNumber.value.trim().toLowerCase();
     const nameQuery = inputName.value.trim().toLowerCase();
 
-    // Hide if both empty or if we are actively editing an existing item
-    if ((!numQuery && !nameQuery) || editingItemId) {
-        autocompleteDropdown.classList.add('hidden');
-        return;
-    }
-
-    // Extract unique pairs
-    const uniquePairs = [];
-    const seen = new Set();
-    for (const item of stockItems) {
-        const key = `${item.number.toLowerCase()}|${(item.name || '').toLowerCase()}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            uniquePairs.push({ number: item.number, name: item.name || '' });
-        }
-    }
-
-    // Filter matches
-    const matches = uniquePairs.filter(pair => {
-        const matchNum = numQuery ? pair.number.toLowerCase().includes(numQuery) : true;
-        const matchName = nameQuery ? pair.name.toLowerCase().includes(nameQuery) : true;
-        const exactMatch = (pair.number.toLowerCase() === numQuery && pair.name.toLowerCase() === nameQuery);
-        return matchNum && matchName && !exactMatch;
-    });
-
-    if (matches.length === 0) {
-        autocompleteDropdown.classList.add('hidden');
-        return;
-    }
-
-    // Render matches
     autocompleteDropdown.innerHTML = '';
-    matches.slice(0, 8).forEach(match => {
-        const div = document.createElement('div');
-        div.className = "px-4 py-3 cursor-pointer hover:bg-blue-100 active:bg-blue-200 transition-colors flex items-center space-x-3";
-        
-        div.innerHTML = `
-            <span class="px-2 py-1 bg-slate-200 text-slate-800 font-mono font-bold rounded text-sm shrink-0 shadow-sm border border-slate-300"># ${escapeHtml(match.number)}</span>
-            <span class="text-blue-700 font-semibold truncate flex-1">${escapeHtml(match.name)}</span>
-        `;
-        
-        // Use mousedown to prevent input blur on click
-        div.addEventListener('mousedown', (e) => {
-            e.preventDefault(); 
-            inputNumber.value = match.number;
-            inputName.value = match.name;
-            autocompleteDropdown.classList.add('hidden');
-            inputQty.focus();
-        });
-        
-        // Also support touchstart for mobile responsiveness
-        div.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            inputNumber.value = match.number;
-            inputName.value = match.name;
-            autocompleteDropdown.classList.add('hidden');
-            inputQty.focus();
-        }, {passive: false});
 
-        autocompleteDropdown.appendChild(div);
-    });
-    
-    autocompleteDropdown.classList.remove('hidden');
+    if (activeEl === inputNumber) {
+        // Suggest ONLY Numbers
+        if (!numQuery) {
+            autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+        
+        const uniqueNums = new Map();
+        for (const item of stockItems) {
+            const nl = item.number.toLowerCase();
+            if (!uniqueNums.has(nl)) uniqueNums.set(nl, item.number);
+        }
+        
+        const matchedNums = Array.from(uniqueNums.values()).filter(n => 
+            n.toLowerCase().includes(numQuery) && n.toLowerCase() !== numQuery
+        );
+        
+        if (matchedNums.length === 0) {
+            autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+
+        matchedNums.slice(0, 8).forEach(numStr => {
+            const div = document.createElement('div');
+            div.className = "px-4 py-3 cursor-pointer hover:bg-slate-200 active:bg-slate-300 transition-colors flex items-center";
+            div.innerHTML = `<span class="px-2 py-1 bg-slate-200 text-slate-800 font-mono font-bold rounded text-sm shadow-sm border border-slate-300"># ${escapeHtml(numStr)}</span>`;
+            
+            const applyVal = (e) => {
+                e.preventDefault(); 
+                inputNumber.value = numStr;
+                autocompleteDropdown.classList.add('hidden');
+                inputName.focus();
+            };
+            div.addEventListener('mousedown', applyVal);
+            div.addEventListener('touchstart', applyVal, {passive: false});
+            autocompleteDropdown.appendChild(div);
+        });
+        autocompleteDropdown.classList.remove('hidden');
+
+    } else if (activeEl === inputName) {
+        // Suggest ONLY Names
+        if (!nameQuery) {
+            autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+
+        const nameMap = new Map(); // lowercase name -> { original, relatedNumbers }
+        for (const item of stockItems) {
+            if (!item.name) continue;
+            const nameLower = item.name.toLowerCase();
+            if (!nameMap.has(nameLower)) {
+                nameMap.set(nameLower, { name: item.name, numbers: new Set() });
+            }
+            nameMap.get(nameLower).numbers.add(item.number.toLowerCase());
+        }
+
+        let matchedNames = Array.from(nameMap.values()).filter(obj => 
+            obj.name.toLowerCase().includes(nameQuery) && obj.name.toLowerCase() !== nameQuery
+        );
+
+        // Sort prioritizing names associated with the CURRENTLY entered number
+        matchedNames.sort((a, b) => {
+            const aHas = numQuery && a.numbers.has(numQuery) ? 1 : 0;
+            const bHas = numQuery && b.numbers.has(numQuery) ? 1 : 0;
+            return bHas - aHas;
+        });
+
+        if (matchedNames.length === 0) {
+            autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+
+        matchedNames.slice(0, 8).forEach(obj => {
+            const div = document.createElement('div');
+            // If it's a prioritized match, give it a slightly different background highlight
+            const isPriority = numQuery && obj.numbers.has(numQuery);
+            const bgClass = isPriority ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-blue-50";
+            
+            div.className = `px-4 py-3 cursor-pointer active:bg-blue-200 transition-colors flex items-center ${bgClass}`;
+            div.innerHTML = `<span class="text-blue-700 font-semibold truncate">${escapeHtml(obj.name)}</span>`;
+            if (isPriority) {
+                div.innerHTML += `<span class="ml-auto text-xs text-blue-500 font-bold bg-blue-100 px-2 py-0.5 rounded-full">Suggested</span>`;
+            }
+            
+            const applyVal = (e) => {
+                e.preventDefault(); 
+                inputName.value = obj.name;
+                autocompleteDropdown.classList.add('hidden');
+                inputQty.focus();
+            };
+            div.addEventListener('mousedown', applyVal);
+            div.addEventListener('touchstart', applyVal, {passive: false});
+            autocompleteDropdown.appendChild(div);
+        });
+        autocompleteDropdown.classList.remove('hidden');
+
+    } else {
+        autocompleteDropdown.classList.add('hidden');
+    }
 }
 
 inputNumber.addEventListener('input', updateAutocomplete);
