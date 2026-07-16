@@ -8,6 +8,8 @@ const viewMain = document.getElementById('view-main');
 const initForm = document.getElementById('init-form');
 const initName = document.getElementById('init-name');
 const initDept = document.getElementById('init-dept');
+const recentSessionsContainer = document.getElementById('recent-sessions-container');
+const recentSessionsList = document.getElementById('recent-sessions-list');
 const headerSession = document.getElementById('header-session');
 const btnSync = document.getElementById('btn-sync');
 const btnClose = document.getElementById('btn-close') || document.getElementById('btn-exit');
@@ -40,6 +42,7 @@ async function initApp() {
     } else {
         viewInit.classList.remove('hidden');
         viewMain.classList.add('hidden');
+        renderRecentSessions();
     }
 
     // Load data from IndexedDB
@@ -84,7 +87,41 @@ if (btnClose) {
         viewMain.classList.add('hidden');
         initName.value = '';
         initDept.value = '';
+        renderRecentSessions();
     });
+}
+
+// Recent Sessions Logic
+function renderRecentSessions() {
+    const historyJson = localStorage.getItem('session_history');
+    let history = [];
+    if (historyJson) {
+        try { history = JSON.parse(historyJson); } catch (e) {}
+    }
+
+    if (history.length > 0) {
+        recentSessionsContainer.classList.remove('hidden');
+        recentSessionsList.innerHTML = '';
+        history.forEach(session => {
+            const btn = document.createElement('button');
+            btn.className = "w-full text-left px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 active:bg-blue-100 transition-colors flex items-center justify-between";
+            btn.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-700">${escapeHtml(session.dept)}</span>
+                    <span class="text-xs text-slate-500">${escapeHtml(session.name)}</span>
+                </div>
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            `;
+            btn.onclick = () => {
+                initName.value = session.name;
+                initDept.value = session.dept;
+                initForm.dispatchEvent(new Event('submit'));
+            };
+            recentSessionsList.appendChild(btn);
+        });
+    } else {
+        recentSessionsContainer.classList.add('hidden');
+    }
 }
 
 // Init Form Submit
@@ -95,6 +132,21 @@ initForm.addEventListener('submit', (e) => {
     if (name && dept) {
         localStorage.setItem('session_name', name);
         localStorage.setItem('session_dept', dept);
+        
+        // Save to history
+        const historyJson = localStorage.getItem('session_history');
+        let history = [];
+        if (historyJson) {
+            try { history = JSON.parse(historyJson); } catch (err) {}
+        }
+        // Remove duplicate if exists
+        history = history.filter(s => !(s.name === name && s.dept === dept));
+        // Add to top
+        history.unshift({ name, dept });
+        // Keep only last 5
+        if (history.length > 5) history = history.slice(0, 5);
+        localStorage.setItem('session_history', JSON.stringify(history));
+
         showMainApp(name, dept);
     }
 });
