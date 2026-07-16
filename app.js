@@ -10,7 +10,7 @@ const initName = document.getElementById('init-name');
 const initDept = document.getElementById('init-dept');
 const headerSession = document.getElementById('header-session');
 const btnSync = document.getElementById('btn-sync');
-const btnExit = document.getElementById('btn-exit');
+const btnClose = document.getElementById('btn-close');
 const btnExport = document.getElementById('btn-export');
 const syncCountBadge = document.getElementById('sync-count');
 const entryForm = document.getElementById('entry-form');
@@ -71,8 +71,11 @@ function showMainApp(name, dept) {
     updateSyncBadge();
 }
 
-// Exit Session (doesn't clear db, just local session vars)
-btnExit.addEventListener('click', () => {
+// Close Session (syncs, then goes to init view)
+btnClose.addEventListener('click', async () => {
+    // Attempt sync before closing
+    await performSync();
+    
     localStorage.removeItem('session_name');
     localStorage.removeItem('session_dept');
     viewInit.classList.remove('hidden');
@@ -203,12 +206,18 @@ function renderList() {
                     </div>
                     <div class="text-sm text-slate-500 truncate">${escapeHtml(item.name || '---')}</div>
                 </div>
-                
-                <button onclick="duplicateItem('${escapeHtml(item.number)}', '${escapeHtml(item.name)}')" class="ml-2 p-2 text-slate-400 hover:text-blue-600 active:bg-blue-50 rounded-full transition-colors" title="Duplicate">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
-                </button>
+                <div class="flex">
+                    <button onclick="editItem('${item.id}')" class="ml-1 p-2 text-slate-400 hover:text-green-600 active:bg-green-50 rounded-full transition-colors" title="Edit">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="duplicateItem('${escapeHtml(item.number)}', '${escapeHtml(item.name)}')" class="ml-1 p-2 text-slate-400 hover:text-blue-600 active:bg-blue-50 rounded-full transition-colors" title="Duplicate">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             
             <div class="flex space-x-2">
@@ -247,6 +256,23 @@ window.duplicateItem = (num, name) => {
     inputQty.focus();
 };
 
+// Edit logic (Pop item back to form)
+window.editItem = async (id) => {
+    const index = stockItems.findIndex(i => i.id === id);
+    if (index > -1) {
+        const item = stockItems[index];
+        inputNumber.value = item.number;
+        inputName.value = item.name;
+        inputQty.value = item.qty;
+        
+        // Remove item from list
+        stockItems.splice(index, 1);
+        await saveItems();
+        renderList();
+        inputQty.focus(); // Focus qty to let them finish editing quickly
+    }
+};
+
 async function updateItemField(id, field, value) {
     const item = stockItems.find(i => i.id === id);
     if (item) {
@@ -272,6 +298,10 @@ function escapeHtml(unsafe) {
 
 // --- SYNC LOGIC (BATCHES OF 10) ---
 btnSync.addEventListener('click', async () => {
+    await performSync();
+});
+
+async function performSync() {
     if (isSyncing) return;
 
     if (GAS_URL === "YOUR_WEB_APP_URL_HERE") {
@@ -297,7 +327,7 @@ btnSync.addEventListener('click', async () => {
     isSyncing = false;
     btnSync.innerHTML = `Sync <span id="sync-count" class="ml-1 bg-red-500 rounded-full px-1.5 py-0.5 text-xs hidden">0</span>`;
     updateSyncBadge();
-});
+}
 
 async function processSyncBatches(unsyncedItems, name, dept) {
     const batchSize = 10;
@@ -351,7 +381,7 @@ async function processSyncBatches(unsyncedItems, name, dept) {
 }
 
 // --- CSV EXPORT LOGIC (NO DEPENDENCIES) ---
-btnExport.addEventListener('click', () => {
+btnExport.addEventListener('click', async () => {
     if (stockItems.length === 0) {
         showToast("No data to export");
         return;
@@ -380,13 +410,32 @@ btnExport.addEventListener('click', () => {
 
     const csvString = csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `Stock_Export_${dateStr}.csv`;
 
-    // Create download link
+    const file = new File([blob], fileName, { type: 'text/csv' });
+
+    // Try Web Share API first (Mobile prompt for WhatsApp)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                title: 'Stock Export',
+                text: 'Here is the latest stock export CSV file.',
+                files: [file]
+            });
+            showToast("Shared successfully!");
+            return;
+        } catch (error) {
+            console.log("Share cancelled or failed", error);
+            // Fallthrough to manual download
+        }
+    }
+
+    // Fallback: Create download link
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    const dateStr = new Date().toISOString().split('T')[0];
-    link.setAttribute("download", `Stock_Export_${dateStr}.csv`);
+    link.setAttribute("download", fileName);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
