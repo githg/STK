@@ -1,6 +1,6 @@
 // app.js
 
-const GAS_URL = "YOUR_WEB_APP_URL_HERE"; // User to replace this
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwWAQkT-9QVAAPiehDYeU3jIEDRGO4XlvFgBmg9cpyoGGUM1xYwUO0BhbDAYR7K-orQ/exec"; // User to replace this
 
 // DOM Elements
 const viewInit = document.getElementById('view-init');
@@ -111,7 +111,7 @@ inputName.addEventListener('keydown', (e) => {
 // Entry Form Submit
 entryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const num = inputNumber.value.trim();
     const name = inputName.value.trim();
     const qtyStr = inputQty.value.trim();
@@ -120,7 +120,7 @@ entryForm.addEventListener('submit', async (e) => {
     if (!num || isNaN(qty)) return;
 
     await addOrUpdateItem(num, name, qty);
-    
+
     // Clear form and refocus
     inputNumber.value = '';
     inputName.value = '';
@@ -131,8 +131,8 @@ entryForm.addEventListener('submit', async (e) => {
 // Core Logic: Add or Update Item (Aggregation)
 async function addOrUpdateItem(num, name, qty) {
     // Look for exact match (case insensitive)
-    const matchIndex = stockItems.findIndex(item => 
-        item.number.toLowerCase() === num.toLowerCase() && 
+    const matchIndex = stockItems.findIndex(item =>
+        item.number.toLowerCase() === num.toLowerCase() &&
         (item.name || "").toLowerCase() === (name || "").toLowerCase()
     );
 
@@ -141,7 +141,7 @@ async function addOrUpdateItem(num, name, qty) {
         const existingItem = stockItems[matchIndex];
         existingItem.qty += qty;
         existingItem.synced = false; // Need to resync because qty changed
-        
+
         // Move to top
         stockItems.splice(matchIndex, 1);
         stockItems.unshift(existingItem);
@@ -186,20 +186,20 @@ function updateSyncBadge() {
 // Render List
 function renderList() {
     itemList.innerHTML = '';
-    
+
     stockItems.forEach((item, index) => {
         const itemDiv = document.createElement('div');
         itemDiv.className = `bg-white p-3 rounded-xl shadow-sm border ${item.synced ? 'item-synced border-slate-200' : 'item-unsynced border-yellow-300'}`;
-        
+
         itemDiv.innerHTML = `
             <div class="flex justify-between items-start mb-2">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-lg font-mono text-slate-800 truncate">${escapeHtml(item.number)}</span>
-                        ${item.synced 
-                            ? '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-                            : '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
-                        }
+                        ${item.synced
+                ? '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                : '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+            }
                     </div>
                     <div class="text-sm text-slate-500 truncate">${escapeHtml(item.name || '---')}</div>
                 </div>
@@ -263,17 +263,17 @@ async function updateItemField(id, field, value) {
 function escapeHtml(unsafe) {
     if (!unsafe) return '';
     return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // --- SYNC LOGIC (BATCHES OF 10) ---
 btnSync.addEventListener('click', async () => {
     if (isSyncing) return;
-    
+
     if (GAS_URL === "YOUR_WEB_APP_URL_HERE") {
         showToast("Please configure GAS_URL in app.js");
         return;
@@ -293,7 +293,7 @@ btnSync.addEventListener('click', async () => {
 
     // Process in batches of 10
     await processSyncBatches(unsynced, name, dept);
-    
+
     isSyncing = false;
     btnSync.innerHTML = `Sync <span id="sync-count" class="ml-1 bg-red-500 rounded-full px-1.5 py-0.5 text-xs hidden">0</span>`;
     updateSyncBadge();
@@ -315,7 +315,7 @@ async function processSyncBatches(unsyncedItems, name, dept) {
             const response = await fetch(GAS_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/plain;charset=utf-8', 
+                    'Content-Type': 'text/plain;charset=utf-8',
                     // Note: GAS doPost handles plain text better for CORS without complex preflight
                 },
                 body: JSON.stringify(payload)
@@ -324,7 +324,7 @@ async function processSyncBatches(unsyncedItems, name, dept) {
             if (!response.ok) throw new Error("Network response was not ok");
 
             const result = await response.json();
-            
+
             if (result.status === 'success') {
                 // Mark batch as synced
                 batch.forEach(bItem => {
@@ -340,7 +340,7 @@ async function processSyncBatches(unsyncedItems, name, dept) {
 
         } catch (error) {
             console.error("Sync Error:", error);
-            showToast(`Sync failed at batch ${Math.floor(i/batchSize)+1}. Retrying later.`);
+            showToast(`Sync failed at batch ${Math.floor(i / batchSize) + 1}. Retrying later.`);
             break; // Stop processing further batches if one fails
         }
     }
@@ -359,7 +359,7 @@ btnExport.addEventListener('click', () => {
 
     // CSV Headers
     const headers = ["ID", "SN", "Number", "Name", "Qty", "Remarks", "Synced"];
-    
+
     // Convert data to CSV format
     const csvRows = [];
     csvRows.push(headers.join(',')); // Add headers
@@ -380,7 +380,7 @@ btnExport.addEventListener('click', () => {
 
     const csvString = csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    
+
     // Create download link
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -391,7 +391,7 @@ btnExport.addEventListener('click', () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showToast("Exported to CSV!");
 });
 
