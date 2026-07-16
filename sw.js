@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'stock-pwa-v1';
+const CACHE_NAME = 'stock-pwa-v2';
 const ASSETS = [
     './',
     './index.html',

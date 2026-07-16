@@ -10,7 +10,7 @@ const initName = document.getElementById('init-name');
 const initDept = document.getElementById('init-dept');
 const headerSession = document.getElementById('header-session');
 const btnSync = document.getElementById('btn-sync');
-const btnClose = document.getElementById('btn-close');
+const btnClose = document.getElementById('btn-close') || document.getElementById('btn-exit');
 const btnExport = document.getElementById('btn-export');
 const syncCountBadge = document.getElementById('sync-count');
 const entryForm = document.getElementById('entry-form');
@@ -72,17 +72,19 @@ function showMainApp(name, dept) {
 }
 
 // Close Session (syncs, then goes to init view)
-btnClose.addEventListener('click', async () => {
-    // Attempt sync before closing
-    await performSync();
-    
-    localStorage.removeItem('session_name');
-    localStorage.removeItem('session_dept');
-    viewInit.classList.remove('hidden');
-    viewMain.classList.add('hidden');
-    initName.value = '';
-    initDept.value = '';
-});
+if (btnClose) {
+    btnClose.addEventListener('click', async () => {
+        // Attempt sync before closing
+        await performSync();
+        
+        localStorage.removeItem('session_name');
+        localStorage.removeItem('session_dept');
+        viewInit.classList.remove('hidden');
+        viewMain.classList.add('hidden');
+        initName.value = '';
+        initDept.value = '';
+    });
+}
 
 // Init Form Submit
 initForm.addEventListener('submit', (e) => {
