@@ -186,6 +186,8 @@ function renderRecentSessions() {
             btn.onclick = () => {
                 initName.value = session.name;
                 initDept.value = session.dept;
+                // Crucial fix: restore rolls setting from history
+                initRolls.checked = session.rolls === true;
                 initForm.dispatchEvent(new Event('submit'));
             };
             recentSessionsList.appendChild(btn);
@@ -214,16 +216,11 @@ initForm.addEventListener('submit', (e) => {
         
         // Save to history
         const historyJson = localStorage.getItem('session_history');
-        let history = [];
-        if (historyJson) {
-            try { history = JSON.parse(historyJson); } catch (err) {}
-        }
-        // Remove duplicate if exists
-        history = history.filter(s => !(s.name === name && s.dept === dept));
-        // Add to top
-        history.unshift({ name, dept });
-        // Keep only last 5
-        if (history.length > 5) history = history.slice(0, 5);
+        let history = historyJson ? JSON.parse(historyJson) : [];
+        const existingIdx = history.findIndex(s => s.name === name && s.dept === dept);
+        if (existingIdx > -1) history.splice(existingIdx, 1);
+        history.unshift({ name, dept, rolls: initRolls.checked }); // Save rolls state
+        if (history.length > 5) history.pop();
         localStorage.setItem('session_history', JSON.stringify(history));
 
         showMainApp(name, dept);
@@ -263,6 +260,16 @@ inputNumber.addEventListener('keydown', (e) => {
     }
 });
 inputName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (localStorage.getItem('session_rolls') === 'true') {
+            inputRolls.focus();
+        } else {
+            inputQty.focus();
+        }
+    }
+});
+inputRolls.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
         inputQty.focus();
@@ -372,7 +379,11 @@ function updateAutocomplete() {
                 e.preventDefault(); 
                 inputName.value = obj.name;
                 autocompleteDropdown.classList.add('hidden');
-                inputQty.focus();
+                if (localStorage.getItem('session_rolls') === 'true') {
+                    inputRolls.focus();
+                } else {
+                    inputQty.focus();
+                }
             };
             div.addEventListener('mousedown', applyVal);
             div.addEventListener('touchstart', applyVal, {passive: false});
