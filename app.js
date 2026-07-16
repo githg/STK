@@ -25,6 +25,9 @@ const inputQty = document.getElementById('input-qty');
 const itemList = document.getElementById('item-list');
 const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 const toastEl = document.getElementById('toast');
+const initRolls = document.getElementById('init-rolls');
+const rollsContainer = document.getElementById('rolls-container');
+const inputRolls = document.getElementById('input-rolls');
 
 // State
 let stockItems = [];
@@ -38,11 +41,15 @@ async function initApp() {
         navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
     }
 
-    const name = localStorage.getItem('session_name');
-    const dept = localStorage.getItem('session_dept');
-
-    if (name && dept) {
-        showMainApp(name, dept);
+    const activeName = localStorage.getItem('session_name');
+    const activeDept = localStorage.getItem('session_dept');
+    const activeRolls = localStorage.getItem('session_rolls') === 'true';
+    if (activeName && activeDept) {
+        if (activeRolls) {
+            initRolls.checked = true;
+            rollsContainer.classList.remove('hidden');
+        }
+        showMainApp(activeName, activeDept);
     } else {
         viewInit.classList.remove('hidden');
         viewMain.classList.add('hidden');
@@ -127,10 +134,12 @@ if (btnClose) {
     btnClose.addEventListener('click', () => {
         localStorage.removeItem('session_name');
         localStorage.removeItem('session_dept');
+        localStorage.removeItem('session_rolls');
         viewInit.classList.remove('hidden');
         viewMain.classList.add('hidden');
         initName.value = '';
         initDept.value = '';
+        initRolls.checked = false;
         renderRecentSessions();
         // Trigger background sync without awaiting
         performSync();
@@ -194,6 +203,14 @@ initForm.addEventListener('submit', (e) => {
     if (name && dept) {
         localStorage.setItem('session_name', name);
         localStorage.setItem('session_dept', dept);
+        localStorage.setItem('session_rolls', initRolls.checked ? 'true' : 'false');
+        
+        if (initRolls.checked) {
+            rollsContainer.classList.remove('hidden');
+        } else {
+            rollsContainer.classList.add('hidden');
+            inputRolls.value = '';
+        }
         
         // Save to history
         const historyJson = localStorage.getItem('session_history');
@@ -386,51 +403,66 @@ entryForm.addEventListener('submit', async (e) => {
 
     const num = inputNumber.value.trim();
     const name = inputName.value.trim();
-    const qtyStr = inputQty.value.trim();
-    const qty = parseFloat(qtyStr);
-
-    if (!num || isNaN(qty)) return;
-
-    if (editingItemId) {
-        // Update existing item explicitly
-        const index = stockItems.findIndex(i => i.id === editingItemId);
-        if (index > -1) {
-            stockItems[index].number = num;
-            stockItems[index].name = name;
-            stockItems[index].qty = qty;
-            stockItems[index].synced = false;
-            
-            // Move to top since it was just edited
-            const editedItem = stockItems.splice(index, 1)[0];
-            stockItems.unshift(editedItem);
-            
-            await saveItems();
-            renderList();
+    const qty = parseFloat(inputQty.value);
+    
+    let rolls = 0;
+    const isRollsEnabled = localStorage.getItem('session_rolls') === 'true';
+    if (isRollsEnabled) {
+        rolls = parseFloat(inputRolls.value);
+        if (isNaN(rolls)) {
+            rolls = qty > 0 ? 1 : 0;
         }
-        editingItemId = null;
-    } else {
-        await addOrUpdateItem(num, name, qty);
     }
 
-    // Clear form and refocus
-    inputNumber.value = '';
-    inputName.value = '';
-    inputQty.value = '';
-    inputNumber.focus();
+    if (num && !isNaN(qty)) {
+        if (editingItemId) {
+            // Update existing item explicitly
+            const index = stockItems.findIndex(i => i.id === editingItemId);
+            if (index > -1) {
+                stockItems[index].number = num;
+                stockItems[index].name = name;
+                stockItems[index].qty = qty;
+                if (isRollsEnabled) stockItems[index].rolls = rolls;
+                stockItems[index].synced = false;
+                
+                // Move to top since it was just edited
+                const editedItem = stockItems.splice(index, 1)[0];
+                stockItems.unshift(editedItem);
+                
+                await saveItems();
+                renderList();
+            }
+            editingItemId = null;
+        } else {
+            await addOrUpdateItem(num, name, qty, rolls);
+        }
+
+        // Reset form
+        inputNumber.value = '';
+        inputName.value = '';
+        inputQty.value = '';
+        if (isRollsEnabled) inputRolls.value = '';
+        inputNumber.focus();
+    }
 });
 
 // Core Logic: Add or Update Item (Aggregation)
-async function addOrUpdateItem(num, name, qty) {
+async function addOrUpdateItem(num, name, qty, rolls = 0) {
     // Look for exact match (case insensitive)
     const matchIndex = stockItems.findIndex(item =>
         String(item.number).toLowerCase() === String(num).toLowerCase() &&
         String(item.name || "").toLowerCase() === String(name || "").toLowerCase()
     );
 
+    const isRollsEnabled = localStorage.getItem('session_rolls') === 'true';
+
     if (matchIndex > -1) {
         // Aggregate
         const existingItem = stockItems[matchIndex];
         existingItem.qty += qty;
+        if (isRollsEnabled) {
+            existingItem.rolls = (parseFloat(existingItem.rolls) || 0) + rolls;
+        }
         existingItem.synced = false; // Need to resync because qty changed
 
         // Move to top
@@ -443,6 +475,7 @@ async function addOrUpdateItem(num, name, qty) {
             number: num,
             name: name,
             qty: qty,
+            rolls: isRollsEnabled ? rolls : "",
             mrp: "",
             remarks: "",
             synced: false,
@@ -480,6 +513,7 @@ function updateSyncBadge() {
     if (unsynced > 0) {
         syncCountBadge.classList.remove('hidden');
     } else {
+        syncCountBadge.classList.hidden = true;
         syncCountBadge.classList.add('hidden');
     }
 }
@@ -490,68 +524,54 @@ function renderList() {
 
     stockItems.forEach((item, index) => {
         const itemDiv = document.createElement('div');
-        itemDiv.className = `bg-white p-3 rounded-xl shadow-sm border ${item.synced ? 'item-synced border-slate-200' : 'item-unsynced border-yellow-300'}`;
+        itemDiv.className = "bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md relative overflow-hidden";
+        if (editingItemId === item.id) {
+            itemDiv.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+        }
+        
+        const isRollsEnabled = localStorage.getItem('session_rolls') === 'true';
+        let rollsHtml = '';
+        if (isRollsEnabled) {
+            rollsHtml = `
+            <div class="w-16 shrink-0">
+                <input type="number" class="w-full text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors text-center" placeholder="Rolls" value="${escapeHtml(item.rolls || '')}" onchange="updateItemField('${item.id}', 'rolls', this.value)">
+            </div>
+            `;
+        }
 
         itemDiv.innerHTML = `
             <div class="flex justify-between items-start mb-2">
-                <div class="flex-1 min-w-0">
+                <div class="flex flex-col min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                        <span class="font-bold text-lg font-mono text-slate-800 truncate">${escapeHtml(item.number)}</span>
+                        <span class="font-mono font-bold text-slate-800 text-lg sm:text-xl truncate"># ${escapeHtml(item.number)}</span>
                         ${item.synced
                 ? '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-                : '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                : '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
             }
                     </div>
-                    <div class="text-sm text-slate-500 truncate">${escapeHtml(item.name || '---')}</div>
+                    <span class="text-blue-700 font-semibold truncate text-sm sm:text-base">${escapeHtml(item.name || '---')}</span>
                 </div>
-                <div class="flex">
-                    <button onclick="editItem('${item.id}')" class="ml-1 p-2 text-slate-400 hover:text-green-600 active:bg-green-50 rounded-full transition-colors" title="Edit">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                        </svg>
-                    </button>
-                    <button onclick="duplicateItem('${escapeHtml(item.number)}', '${escapeHtml(item.name)}')" class="ml-1 p-2 text-slate-400 hover:text-blue-600 active:bg-blue-50 rounded-full transition-colors" title="Duplicate">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                        </svg>
+                <div class="flex items-center space-x-3 ml-2 shrink-0">
+                    <div class="text-right">
+                        <span class="block text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none">${item.qty}</span>
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Qty</span>
+                    </div>
+                    <button class="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" onclick="editItem('${item.id}')" title="Edit Item">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     </button>
                 </div>
             </div>
-            
-            <div class="flex space-x-2">
-                <input type="number" value="${item.qty}" data-id="${item.id}" class="edit-qty w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-center font-bold focus:ring-1 focus:ring-blue-400 focus:outline-none">
-                <input type="text" value="${escapeHtml(item.mrp || '')}" data-id="${item.id}" placeholder="MRP" class="edit-mrp w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded focus:ring-1 focus:ring-blue-400 focus:outline-none text-sm">
-                <input type="text" value="${escapeHtml(item.remarks)}" data-id="${item.id}" placeholder="Remarks..." class="edit-remarks flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded focus:ring-1 focus:ring-blue-400 focus:outline-none text-sm">
+            <div class="flex space-x-2 mt-3 pt-3 border-t border-slate-100">
+                ${rollsHtml}
+                <div class="w-24 shrink-0">
+                    <input type="text" class="w-full text-sm font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors" placeholder="MRP" value="${escapeHtml(item.mrp || '')}" onchange="updateItemField('${item.id}', 'mrp', this.value)">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <input type="text" class="w-full text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors" placeholder="Remarks..." value="${escapeHtml(item.remarks || '')}" onchange="updateItemField('${item.id}', 'remarks', this.value)">
+                </div>
             </div>
         `;
         itemList.appendChild(itemDiv);
-    });
-
-    // Attach listeners for inline editing
-    document.querySelectorAll('.edit-qty').forEach(input => {
-        input.addEventListener('change', async (e) => {
-            const id = e.target.dataset.id;
-            const newQty = parseFloat(e.target.value);
-            if (!isNaN(newQty)) {
-                await updateItemField(id, 'qty', newQty);
-            }
-        });
-    });
-
-    document.querySelectorAll('.edit-mrp').forEach(input => {
-        input.addEventListener('change', async (e) => {
-            const id = e.target.dataset.id;
-            const newMrp = e.target.value;
-            await updateItemField(id, 'mrp', newMrp);
-        });
-    });
-
-    document.querySelectorAll('.edit-remarks').forEach(input => {
-        input.addEventListener('change', async (e) => {
-            const id = e.target.dataset.id;
-            const newRemarks = e.target.value;
-            await updateItemField(id, 'remarks', newRemarks);
-        });
     });
 }
 
@@ -567,10 +587,14 @@ window.duplicateItem = (num, name) => {
 window.editItem = async (id) => {
     const index = stockItems.findIndex(i => i.id === id);
     if (index > -1) {
-        const item = stockItems[index];
-        inputNumber.value = item.number;
-        inputName.value = item.name;
-        inputQty.value = item.qty;
+        const itemToEdit = stockItems[index];
+        inputNumber.value = itemToEdit.number;
+        inputName.value = itemToEdit.name || "";
+        inputQty.value = itemToEdit.qty;
+        
+        if (localStorage.getItem('session_rolls') === 'true') {
+            inputRolls.value = itemToEdit.rolls || "";
+        }
         
         editingItemId = id; // Set global flag so submit updates it
         inputNumber.focus(); 

@@ -32,8 +32,8 @@ function doPost(e) {
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(["ID", "Number", "Name", "Qty", "MRP", "Remarks", "Timestamp"]);
-      sheet.getRange("A1:G1").setFontWeight("bold");
+      sheet.appendRow(["ID", "Number", "Name", "Qty", "Rolls", "MRP", "Remarks", "Timestamp"]);
+      sheet.getRange("A1:H1").setFontWeight("bold");
       sheet.setFrozenRows(1);
     }
     
@@ -58,15 +58,16 @@ function doPost(e) {
       var timestamp = new Date();
       
       if (idRowMap.hasOwnProperty(itemId)) {
-        // ID exists -> Update Qty and Remarks
+        // ID exists -> Update fields
         // Sheet rows are 1-indexed. The array index 'i' maps to sheet row 'i + 1'
         var sheetRowIndex = idRowMap[itemId] + 1;
         
-        // Update Qty (Col 4), MRP (Col 5), Remarks (Col 6), Timestamp (Col 7)
+        // Update Qty (Col 4), Rolls (Col 5), MRP (Col 6), Remarks (Col 7), Timestamp (Col 8)
         sheet.getRange(sheetRowIndex, 4).setValue(item.qty);
-        sheet.getRange(sheetRowIndex, 5).setValue(item.mrp || "");
-        sheet.getRange(sheetRowIndex, 6).setValue(item.remarks || "");
-        sheet.getRange(sheetRowIndex, 7).setValue(timestamp);
+        sheet.getRange(sheetRowIndex, 5).setValue(item.rolls || "");
+        sheet.getRange(sheetRowIndex, 6).setValue(item.mrp || "");
+        sheet.getRange(sheetRowIndex, 7).setValue(item.remarks || "");
+        sheet.getRange(sheetRowIndex, 8).setValue(timestamp);
       } else {
         // ID does not exist -> Append Row
         sheet.appendRow([
@@ -74,6 +75,7 @@ function doPost(e) {
           item.number,
           item.name || "",
           item.qty,
+          item.rolls || "",
           item.mrp || "",
           item.remarks || "",
           timestamp

@@ -38,6 +38,11 @@
                     class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 transition-shadow">
             </div>
             
+            <label class="flex items-center space-x-3 mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <input type="checkbox" id="init-rolls" class="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                <span class="text-slate-700 font-semibold">Enable Rolls Counter</span>
+            </label>
+
             <button type="submit" 
                 class="w-full py-4 mt-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-lg transition-transform transform active:scale-95">
                 Start Session
@@ -95,6 +100,10 @@
                 <div class="flex-1 min-w-0">
                     <input type="text" id="input-name" name="stk_val_2" placeholder="Brand/Design Name" autocomplete="new-password" autocorrect="off" spellcheck="false"
                         class="w-full px-3 py-3 sm:py-4 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-lg sm:text-xl font-bold transition-all shadow-inner">
+                </div>
+                <div id="rolls-container" class="w-16 sm:w-20 shrink-0 hidden">
+                    <input type="number" id="input-rolls" name="stk_rolls" placeholder="Rolls" autocomplete="off"
+                        class="w-full px-2 py-3 sm:py-4 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-lg sm:text-xl text-center font-bold bg-amber-50 transition-all shadow-inner">
                 </div>
                 <div class="w-20 sm:w-24 shrink-0">
                     <input type="number" id="input-qty" name="stk_val_3" required placeholder="Qty *" autocomplete="new-password"
