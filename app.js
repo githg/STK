@@ -28,11 +28,13 @@ const toastEl = document.getElementById('toast');
 const initRolls = document.getElementById('init-rolls');
 const rollsContainer = document.getElementById('rolls-container');
 const inputRolls = document.getElementById('input-rolls');
+const btnLock = document.getElementById('btn-lock');
 
 // State
 let stockItems = [];
 let isSyncing = false;
 let editingItemId = null;
+let isLocked = false;
 
 // Initialize App
 async function initApp() {
@@ -415,6 +417,20 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// Lock Button Logic
+if (btnLock) {
+    btnLock.addEventListener('click', () => {
+        isLocked = !isLocked;
+        if (isLocked) {
+            btnLock.classList.add('bg-blue-100', 'border-blue-400', 'text-blue-700');
+            btnLock.classList.remove('bg-slate-50', 'border-slate-200', 'text-slate-400');
+        } else {
+            btnLock.classList.remove('bg-blue-100', 'border-blue-400', 'text-blue-700');
+            btnLock.classList.add('bg-slate-50', 'border-slate-200', 'text-slate-400');
+        }
+    });
+}
+
 // Entry Form Submit
 entryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -455,12 +471,18 @@ entryForm.addEventListener('submit', async (e) => {
             await addOrUpdateItem(num, name, qty, rolls);
         }
 
-        // Reset form
-        inputNumber.value = '';
-        inputName.value = '';
-        inputQty.value = '';
-        if (isRollsEnabled) inputRolls.value = '';
-        inputNumber.focus();
+        // Reset form based on lock state
+        if (isLocked) {
+            inputQty.value = '';
+            if (isRollsEnabled) inputRolls.value = '';
+            inputQty.focus();
+        } else {
+            inputNumber.value = '';
+            inputName.value = '';
+            inputQty.value = '';
+            if (isRollsEnabled) inputRolls.value = '';
+            inputNumber.focus();
+        }
     }
 });
 
@@ -558,8 +580,9 @@ function renderList() {
         let rollsHtml = '';
         if (isRollsEnabled) {
             rollsHtml = `
-            <div class="w-16 shrink-0">
-                <input type="number" class="w-full text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors text-center" placeholder="Rolls" value="${escapeHtml(item.rolls || '')}" onchange="updateItemField('${item.id}', 'rolls', this.value)">
+            <div class="w-14 shrink-0 relative pt-4">
+                <span class="absolute top-0 left-0 w-full text-center text-[9px] font-black tracking-widest text-amber-600 uppercase">Thaan</span>
+                <input type="number" class="w-full text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-1.5 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors text-center" value="${escapeHtml(item.rolls || '')}" onchange="updateItemField('${item.id}', 'rolls', this.value)">
             </div>
             `;
         }
@@ -567,16 +590,18 @@ function renderList() {
         itemDiv.innerHTML = `
             <div class="flex justify-between items-start mb-2">
                 <div class="flex flex-col min-w-0 flex-1">
+                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mb-0.5">Code</span>
                     <div class="flex items-center gap-2">
                         <span class="font-mono font-bold text-slate-800 text-lg sm:text-xl truncate"># ${escapeHtml(item.number)}</span>
                         ${item.synced
-                ? '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-                : '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                ? '<svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                : '<svg class="w-5 h-5 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
             }
                     </div>
+                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mt-1.5 mb-0.5">Brand</span>
                     <span class="text-blue-700 font-semibold truncate text-sm sm:text-base">${escapeHtml(item.name || '---')}</span>
                 </div>
-                <div class="flex items-center space-x-3 ml-2 shrink-0">
+                <div class="flex items-center space-x-2 sm:space-x-3 ml-2 shrink-0">
                     <div class="text-right">
                         <span class="block text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none">${item.qty}</span>
                         <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Qty</span>
@@ -586,13 +611,15 @@ function renderList() {
                     </button>
                 </div>
             </div>
-            <div class="flex space-x-2 mt-3 pt-3 border-t border-slate-100">
+            <div class="flex space-x-2 mt-2 pt-2 border-t border-slate-100">
                 ${rollsHtml}
-                <div class="w-24 shrink-0">
+                <div class="w-20 sm:w-24 shrink-0 relative pt-4">
+                    <span class="absolute top-0 left-0 w-full text-[9px] font-black tracking-widest text-slate-400 uppercase pl-1">Rate</span>
                     <input type="text" class="w-full text-sm font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors" placeholder="MRP" value="${escapeHtml(item.mrp || '')}" onchange="updateItemField('${item.id}', 'mrp', this.value)">
                 </div>
-                <div class="flex-1 min-w-0">
-                    <input type="text" class="w-full text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors" placeholder="Remarks..." value="${escapeHtml(item.remarks || '')}" onchange="updateItemField('${item.id}', 'remarks', this.value)">
+                <div class="flex-1 min-w-0 relative pt-4">
+                    <span class="absolute top-0 left-0 w-full text-[9px] font-black tracking-widest text-slate-400 uppercase pl-1">Remarks</span>
+                    <input type="text" class="w-full text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors" placeholder="Add remarks..." value="${escapeHtml(item.remarks || '')}" onchange="updateItemField('${item.id}', 'remarks', this.value)">
                 </div>
             </div>
         `;
