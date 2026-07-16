@@ -11,6 +11,7 @@ const initDept = document.getElementById('init-dept');
 const recentSessionsContainer = document.getElementById('recent-sessions-container');
 const recentSessionsList = document.getElementById('recent-sessions-list');
 const headerSession = document.getElementById('header-session');
+const btnFullscreen = document.getElementById('btn-fullscreen');
 const btnSync = document.getElementById('btn-sync');
 const btnClose = document.getElementById('btn-close') || document.getElementById('btn-exit');
 const btnExport = document.getElementById('btn-export');
@@ -150,6 +151,31 @@ initForm.addEventListener('submit', (e) => {
         showMainApp(name, dept);
     }
 });
+
+// Fullscreen Toggle Logic
+if (btnFullscreen) {
+    btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    showToast("Fullscreen not supported on this device.");
+                });
+            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
+                document.documentElement.webkitRequestFullscreen();
+            } else if (document.documentElement.msRequestFullscreen) { /* IE11 */
+                document.documentElement.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE11 */
+                document.msExitFullscreen();
+            }
+        }
+    });
+}
 
 // Keyboard Flow Logic
 inputNumber.addEventListener('keydown', (e) => {
