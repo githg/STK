@@ -53,7 +53,12 @@ async function initApp() {
     try {
         const storedItems = await localforage.getItem('stock_items');
         if (storedItems) {
-            stockItems = storedItems;
+            // Backfill schema for old data
+            stockItems = storedItems.map(item => {
+                if (!item.session_name) item.session_name = localStorage.getItem('session_name') || "";
+                if (!item.session_dept) item.session_dept = localStorage.getItem('session_dept') || "";
+                return item;
+            });
         }
     } catch (err) {
         console.error("Error loading from localforage", err);
@@ -117,12 +122,9 @@ function showMainApp(name, dept) {
     updateSyncBadge();
 }
 
-// Close Session (syncs, then goes to init view)
+// Close Session (syncs in background, instantly closes UI)
 if (btnClose) {
-    btnClose.addEventListener('click', async () => {
-        // Attempt sync before closing
-        await performSync();
-        
+    btnClose.addEventListener('click', () => {
         localStorage.removeItem('session_name');
         localStorage.removeItem('session_dept');
         viewInit.classList.remove('hidden');
@@ -130,6 +132,8 @@ if (btnClose) {
         initName.value = '';
         initDept.value = '';
         renderRecentSessions();
+        // Trigger background sync without awaiting
+        performSync();
     });
 }
 
@@ -152,8 +156,24 @@ function renderRecentSessions() {
                     <span class="font-bold text-slate-700">${escapeHtml(session.dept)}</span>
                     <span class="text-xs text-slate-500">${escapeHtml(session.name)}</span>
                 </div>
-                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <div class="flex items-center">
+                    <div class="sync-indicator"></div>
+                    <svg class="w-5 h-5 text-slate-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
             `;
+            
+            const pendingCount = stockItems.filter(i => !i.synced && i.session_name === session.name && i.session_dept === session.dept).length;
+            const indicatorContainer = btn.querySelector('.sync-indicator');
+            
+            if (pendingCount > 0) {
+                indicatorContainer.innerHTML = `<span class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-bold border border-red-200 animate-pulse hover:bg-red-200 transition-colors">Sync (${pendingCount})</span>`;
+                indicatorContainer.onclick = (e) => {
+                    e.stopPropagation();
+                    indicatorContainer.innerHTML = `<span class="px-2 py-1 bg-green-500 text-white rounded-lg text-xs font-bold animate-pulse">Syncing...</span>`;
+                    performSync(session.name, session.dept);
+                };
+            }
+            
             btn.onclick = () => {
                 initName.value = session.name;
                 initDept.value = session.dept;
@@ -256,8 +276,8 @@ function updateAutocomplete() {
         
         const uniqueNums = new Map();
         for (const item of stockItems) {
-            const nl = item.number.toLowerCase();
-            if (!uniqueNums.has(nl)) uniqueNums.set(nl, item.number);
+            const nl = String(item.number).toLowerCase();
+            if (!uniqueNums.has(nl)) uniqueNums.set(nl, String(item.number));
         }
         
         const matchedNums = Array.from(uniqueNums.values()).filter(n => 
@@ -296,11 +316,11 @@ function updateAutocomplete() {
         const nameMap = new Map(); // lowercase name -> { original, relatedNumbers }
         for (const item of stockItems) {
             if (!item.name) continue;
-            const nameLower = item.name.toLowerCase();
+            const nameLower = String(item.name).toLowerCase();
             if (!nameMap.has(nameLower)) {
-                nameMap.set(nameLower, { name: item.name, numbers: new Set() });
+                nameMap.set(nameLower, { name: String(item.name), numbers: new Set() });
             }
-            nameMap.get(nameLower).numbers.add(item.number.toLowerCase());
+            nameMap.get(nameLower).numbers.add(String(item.number).toLowerCase());
         }
 
         let matchedNames = Array.from(nameMap.values()).filter(obj => 
@@ -403,8 +423,8 @@ entryForm.addEventListener('submit', async (e) => {
 async function addOrUpdateItem(num, name, qty) {
     // Look for exact match (case insensitive)
     const matchIndex = stockItems.findIndex(item =>
-        item.number.toLowerCase() === num.toLowerCase() &&
-        (item.name || "").toLowerCase() === (name || "").toLowerCase()
+        String(item.number).toLowerCase() === String(num).toLowerCase() &&
+        String(item.name || "").toLowerCase() === String(name || "").toLowerCase()
     );
 
     if (matchIndex > -1) {
@@ -425,13 +445,21 @@ async function addOrUpdateItem(num, name, qty) {
             qty: qty,
             mrp: "",
             remarks: "",
-            synced: false
+            synced: false,
+            session_name: localStorage.getItem('session_name') || "",
+            session_dept: localStorage.getItem('session_dept') || ""
         };
         stockItems.unshift(newItem);
     }
 
     await saveItems();
     renderList();
+
+    // Auto-sync every 10th unsynced item
+    const unsyncedCount = stockItems.filter(i => !i.synced).length;
+    if (unsyncedCount > 0 && unsyncedCount % 10 === 0 && !isSyncing) {
+        performSync();
+    }
 }
 
 async function saveItems() {
@@ -443,8 +471,10 @@ async function saveItems() {
     }
 }
 
-// Update Sync Badge
+// Update Sync Badge (Internal span in the sync button)
 function updateSyncBadge() {
+    const syncCountBadge = document.getElementById('sync-count');
+    if (!syncCountBadge) return;
     const unsynced = stockItems.filter(i => !i.synced).length;
     syncCountBadge.textContent = unsynced;
     if (unsynced > 0) {
@@ -570,12 +600,37 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-// --- SYNC LOGIC (BATCHES OF 10) ---
+// --- SYNC LOGIC ---
 btnSync.addEventListener('click', async () => {
     await performSync();
 });
 
-async function performSync() {
+// Update Sync Button State (Colors & Animation)
+function updateSyncButtonState(state) {
+    if (!btnSync) return;
+    
+    // Reset classes
+    btnSync.className = "flex items-center font-bold px-3 py-1.5 rounded-lg border border-transparent transition-all shadow-sm";
+    
+    if (state === 'syncing') {
+        btnSync.classList.add('bg-green-500', 'text-white', 'animate-pulse');
+        btnSync.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Syncing`;
+    } else if (state === 'synced') {
+        btnSync.classList.add('bg-green-600', 'text-white');
+        btnSync.innerHTML = `Synced <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+    } else if (state === 'failed') {
+        btnSync.classList.add('bg-red-500', 'text-white', 'animate-pulse');
+        btnSync.innerHTML = `Sync <span id="sync-count" class="ml-1 bg-red-700 rounded-full px-1.5 py-0.5 text-xs hidden"></span>`;
+        updateSyncBadge(); // Populates count
+    } else {
+        // default (unsynced items exist but not failed yet)
+        btnSync.classList.add('bg-yellow-500', 'text-slate-900', 'hover:bg-yellow-400');
+        btnSync.innerHTML = `Sync <span id="sync-count" class="ml-1 bg-yellow-700 text-white rounded-full px-1.5 py-0.5 text-xs hidden"></span>`;
+        updateSyncBadge();
+    }
+}
+
+async function performSync(specificSessionName = null, specificSessionDept = null) {
     if (isSyncing) return;
 
     if (GAS_URL === "YOUR_WEB_APP_URL_HERE") {
@@ -583,24 +638,58 @@ async function performSync() {
         return;
     }
 
-    const unsynced = stockItems.filter(i => !i.synced);
+    let unsynced = stockItems.filter(i => !i.synced);
+    
+    // If we only want to sync a specific session (from login screen)
+    if (specificSessionName !== null && specificSessionDept !== null) {
+        unsynced = unsynced.filter(i => i.session_name === specificSessionName && i.session_dept === specificSessionDept);
+    }
+
     if (unsynced.length === 0) {
-        showToast("Everything is synced!");
+        updateSyncButtonState('synced');
         return;
     }
 
-    const name = localStorage.getItem('session_name');
-    const dept = localStorage.getItem('session_dept');
-
     isSyncing = true;
-    btnSync.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Syncing...`;
+    updateSyncButtonState('syncing');
 
-    // Process in batches of 10
-    await processSyncBatches(unsynced, name, dept);
+    // Group unsynced items by their explicit session tags to prevent cross-session leakage
+    const groups = {};
+    unsynced.forEach(item => {
+        const sName = item.session_name || "Unknown";
+        const sDept = item.session_dept || "Unknown";
+        const key = `${sName}|${sDept}`;
+        if (!groups[key]) groups[key] = { name: sName, dept: sDept, items: [] };
+        groups[key].items.push(item);
+    });
+
+    let hasError = false;
+
+    // Process each session's batch separately
+    for (const key in groups) {
+        const group = groups[key];
+        try {
+            await processSyncBatches(group.items, group.name, group.dept);
+        } catch (error) {
+            console.error("Sync Error for group:", key, error);
+            hasError = true;
+        }
+    }
 
     isSyncing = false;
-    btnSync.innerHTML = `Sync <span id="sync-count" class="ml-1 bg-red-500 rounded-full px-1.5 py-0.5 text-xs hidden">0</span>`;
-    updateSyncBadge();
+    
+    // After attempting, check if there are still global unsynced items
+    const remainingUnsynced = stockItems.filter(i => !i.synced).length;
+    if (hasError || remainingUnsynced > 0) {
+        updateSyncButtonState('failed');
+    } else {
+        updateSyncButtonState('synced');
+    }
+    
+    // Re-render recent sessions to update any sync badges on the login screen
+    if (viewInit && !viewInit.classList.contains('hidden')) {
+        renderRecentSessions();
+    }
 }
 
 async function processSyncBatches(unsyncedItems, name, dept) {
@@ -615,52 +704,44 @@ async function processSyncBatches(unsyncedItems, name, dept) {
             items: batch
         };
 
-        try {
-            const response = await fetch(GAS_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8',
-                    // Note: GAS doPost handles plain text better for CORS without complex preflight
-                },
-                body: JSON.stringify(payload)
-            });
+        const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(payload)
+        });
 
-            if (!response.ok) throw new Error("Network response was not ok");
+        if (!response.ok) throw new Error("Network response was not ok");
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (result.status === 'success') {
-                // Mark batch as synced ONLY if data hasn't been edited during sync
-                batch.forEach(bItem => {
-                    const idx = stockItems.findIndex(si => si.id === bItem.id);
-                    if (idx > -1) {
-                        const currentItem = stockItems[idx];
-                        // If the user modified any field while this fetch was in flight, leave it as unsynced
-                        if (currentItem.qty === bItem.qty && 
-                            currentItem.mrp === bItem.mrp && 
-                            currentItem.remarks === bItem.remarks &&
-                            currentItem.number === bItem.number &&
-                            currentItem.name === bItem.name) {
-                            currentItem.synced = true;
-                        }
+        if (result.status === 'success') {
+            // Mark batch as synced ONLY if data hasn't been edited during sync
+            batch.forEach(bItem => {
+                const idx = stockItems.findIndex(si => si.id === bItem.id);
+                if (idx > -1) {
+                    const currentItem = stockItems[idx];
+                    // If the user modified any field while this fetch was in flight, leave it as unsynced
+                    if (currentItem.qty === bItem.qty && 
+                        currentItem.mrp === bItem.mrp && 
+                        currentItem.remarks === bItem.remarks &&
+                        String(currentItem.number) === String(bItem.number) &&
+                        String(currentItem.name) === String(bItem.name)) {
+                        currentItem.synced = true;
                     }
-                });
-                await saveItems();
-                renderList();
-                successCount += batch.length;
-            } else {
-                throw new Error(result.message || "Unknown GAS error");
-            }
-
-        } catch (error) {
-            console.error("Sync Error:", error);
-            showToast(`Sync failed at batch ${Math.floor(i / batchSize) + 1}. Retrying later.`);
-            break; // Stop processing further batches if one fails
+                }
+            });
+            await saveItems();
+            renderList();
+            successCount += batch.length;
+        } else {
+            throw new Error(result.message || "Unknown GAS error");
         }
     }
 
     if (successCount > 0) {
-        showToast(`Successfully synced ${successCount} items.`);
+        showToast(`Successfully synced ${successCount} items for ${name}.`);
     }
 }
 
