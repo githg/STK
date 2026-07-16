@@ -1,0 +1,37 @@
+/* style.css */
+
+/* iOS Safari overscroll bounce fix */
+body {
+    overscroll-behavior-y: none;
+}
+
+/* Custom visual cues for synced vs unsynced items */
+.item-synced {
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+}
+
+.item-unsynced {
+    opacity: 1;
+}
+
+/* Hide number arrows (spinners) for input type="number" */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+}
+
+/* Toast animation classes */
+.toast-visible {
+    opacity: 1 !important;
+    transform: translate(-50%, 0) !important;
+}
+
+/* Pull to refresh disable */
+html {
+    overscroll-behavior: none;
+}
