@@ -502,10 +502,20 @@ async function processSyncBatches(unsyncedItems, name, dept) {
             const result = await response.json();
 
             if (result.status === 'success') {
-                // Mark batch as synced
+                // Mark batch as synced ONLY if data hasn't been edited during sync
                 batch.forEach(bItem => {
                     const idx = stockItems.findIndex(si => si.id === bItem.id);
-                    if (idx > -1) stockItems[idx].synced = true;
+                    if (idx > -1) {
+                        const currentItem = stockItems[idx];
+                        // If the user modified any field while this fetch was in flight, leave it as unsynced
+                        if (currentItem.qty === bItem.qty && 
+                            currentItem.mrp === bItem.mrp && 
+                            currentItem.remarks === bItem.remarks &&
+                            currentItem.number === bItem.number &&
+                            currentItem.name === bItem.name) {
+                            currentItem.synced = true;
+                        }
+                    }
                 });
                 await saveItems();
                 renderList();
