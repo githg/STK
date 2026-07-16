@@ -590,24 +590,25 @@ function renderList() {
         itemDiv.innerHTML = `
             <div class="flex justify-between items-start mb-2">
                 <div class="flex flex-col min-w-0 flex-1">
-                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mb-0.5">Code</span>
-                    <div class="flex items-center gap-2">
-                        <span class="font-mono font-bold text-slate-800 text-lg sm:text-xl truncate"># ${escapeHtml(item.number)}</span>
+                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mb-0.5 ml-1">Code</span>
+                    <div class="flex items-center gap-1">
+                        <span class="font-mono font-bold text-slate-800 text-lg sm:text-xl pl-1">#</span>
+                        <input type="text" class="font-mono font-bold text-slate-800 text-lg sm:text-xl bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-blue-400 rounded px-1 w-full max-w-[140px] focus:outline-none transition-colors" value="${escapeHtml(item.number)}" onchange="updateCoreField('${item.id}', 'number', this.value, '${escapeHtml(item.number)}')">
                         ${item.synced
-                ? '<svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-                : '<svg class="w-5 h-5 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                ? '<svg class="w-5 h-5 text-green-500 shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                : '<svg class="w-5 h-5 text-yellow-500 shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
             }
                     </div>
-                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mt-1.5 mb-0.5">Brand</span>
-                    <span class="text-blue-700 font-semibold truncate text-sm sm:text-base">${escapeHtml(item.name || '---')}</span>
+                    <span class="text-[9px] font-black tracking-widest text-slate-400 uppercase mt-1.5 mb-0.5 ml-1">Brand</span>
+                    <input type="text" class="text-blue-700 font-semibold text-sm sm:text-base bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-blue-400 rounded px-1 w-full focus:outline-none transition-colors truncate" value="${escapeHtml(item.name || '')}" onchange="updateCoreField('${item.id}', 'name', this.value, '${escapeHtml(item.name || '')}')">
                 </div>
                 <div class="flex items-center space-x-2 sm:space-x-3 ml-2 shrink-0">
-                    <div class="text-right">
-                        <span class="block text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none">${item.qty}</span>
-                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Qty</span>
+                    <div class="flex flex-col items-end">
+                        <input type="number" class="text-right block w-20 text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-blue-400 rounded px-1 focus:outline-none transition-colors" value="${item.qty}" onchange="updateCoreField('${item.id}', 'qty', parseInt(this.value, 10), ${item.qty})">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1 pr-1">Qty</span>
                     </div>
-                    <button class="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" onclick="editItem('${item.id}')" title="Edit Item">
-                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    <button class="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" onclick="duplicateItem('${escapeHtml(item.number)}', '${escapeHtml(item.name || '')}')" title="Copy Item">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2z"></path></svg>
                     </button>
                 </div>
             </div>
@@ -629,27 +630,25 @@ function renderList() {
 
 // Duplicate logic
 window.duplicateItem = (num, name) => {
+    // If locked, we don't want to wipe the name/number, but wait, duplicate is just populating the form
     inputNumber.value = num;
     inputName.value = name;
     inputQty.value = '';
+    if (localStorage.getItem('session_rolls') === 'true') {
+        inputRolls.value = '';
+    }
     inputQty.focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// Edit logic (Pop item back to form)
-window.editItem = async (id) => {
-    const index = stockItems.findIndex(i => i.id === id);
-    if (index > -1) {
-        const itemToEdit = stockItems[index];
-        inputNumber.value = itemToEdit.number;
-        inputName.value = itemToEdit.name || "";
-        inputQty.value = itemToEdit.qty;
-        
-        if (localStorage.getItem('session_rolls') === 'true') {
-            inputRolls.value = itemToEdit.rolls || "";
-        }
-        
-        editingItemId = id; // Set global flag so submit updates it
-        inputNumber.focus(); 
+window.updateCoreField = async (id, field, newValue, oldValue) => {
+    // Basic string coercion for comparison if needed
+    if (String(newValue) === String(oldValue)) return;
+    
+    if (confirm(`WARNING: Are you sure you want to change the ${field.toUpperCase()}?\n\nChanging this will overwrite the aggregated data for this entry.`)) {
+        await updateItemField(id, field, newValue);
+    } else {
+        renderList(); // Revert UI
     }
 };
 
