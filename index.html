@@ -28,13 +28,13 @@
         <form id="init-form" class="w-full max-w-sm space-y-5">
             <div>
                 <label class="block text-sm font-semibold text-slate-600 mb-1">User Name</label>
-                <input type="text" id="init-name" required autocomplete="off"
+                <input type="text" id="init-name" name="init_n_field" required autocomplete="new-password" autocorrect="off" spellcheck="false"
                     class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 transition-shadow">
             </div>
             
             <div>
                 <label class="block text-sm font-semibold text-slate-600 mb-1">Department</label>
-                <input type="text" id="init-dept" required autocomplete="off"
+                <input type="text" id="init-dept" name="init_d_field" required autocomplete="new-password" autocorrect="off" spellcheck="false"
                     class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 transition-shadow">
             </div>
             
@@ -89,15 +89,15 @@
             <form id="entry-form" class="flex space-x-2">
                 <!-- Enter key flow: Number -> Name -> Qty -> Submit -->
                 <div class="flex-1 min-w-0">
-                    <input type="text" id="input-number" required placeholder="Number/Code *" autocomplete="off"
+                    <input type="text" id="input-number" name="stk_val_1" required placeholder="Number/Code *" autocomplete="new-password" autocorrect="off" spellcheck="false"
                         class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg font-mono">
                 </div>
                 <div class="flex-1 min-w-0">
-                    <input type="text" id="input-name" placeholder="Brand/Design Name" autocomplete="off"
+                    <input type="text" id="input-name" name="stk_val_2" placeholder="Brand/Design Name" autocomplete="new-password" autocorrect="off" spellcheck="false"
                         class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg">
                 </div>
                 <div class="w-16 sm:w-20 shrink-0">
-                    <input type="number" id="input-qty" required placeholder="Qty *" autocomplete="off"
+                    <input type="number" id="input-qty" name="stk_val_3" required placeholder="Qty *" autocomplete="new-password"
                         class="w-full px-2 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg text-center font-bold">
                 </div>
                 <!-- Hidden submit button for mobile keyboard "Go" functionality -->
