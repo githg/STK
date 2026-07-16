@@ -32,8 +32,7 @@ function doPost(e) {
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      // Initialize Headers for new sheet
-      sheet.appendRow(["ID", "UI_SN", "Number", "Name", "Qty", "Remarks", "Timestamp"]);
+      sheet.appendRow(["ID", "Number", "Name", "Qty", "MRP", "Remarks", "Timestamp"]);
       sheet.getRange("A1:G1").setFontWeight("bold");
       sheet.setFrozenRows(1);
     }
@@ -63,18 +62,19 @@ function doPost(e) {
         // Sheet rows are 1-indexed. The array index 'i' maps to sheet row 'i + 1'
         var sheetRowIndex = idRowMap[itemId] + 1;
         
-        // Update Qty (Col E, which is 5) and Remarks (Col F, which is 6), Timestamp (Col G, which is 7)
-        sheet.getRange(sheetRowIndex, 5).setValue(item.qty);
+        // Update Qty (Col 4), MRP (Col 5), Remarks (Col 6), Timestamp (Col 7)
+        sheet.getRange(sheetRowIndex, 4).setValue(item.qty);
+        sheet.getRange(sheetRowIndex, 5).setValue(item.mrp || "");
         sheet.getRange(sheetRowIndex, 6).setValue(item.remarks || "");
         sheet.getRange(sheetRowIndex, 7).setValue(timestamp);
       } else {
         // ID does not exist -> Append Row
         sheet.appendRow([
           item.id,
-          item.ui_sn,
           item.number,
           item.name || "",
           item.qty,
+          item.mrp || "",
           item.remarks || "",
           timestamp
         ]);

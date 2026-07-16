@@ -23,6 +23,7 @@ const toastEl = document.getElementById('toast');
 // State
 let stockItems = [];
 let isSyncing = false;
+let editingItemId = null;
 
 // Initialize App
 async function initApp() {
@@ -124,7 +125,26 @@ entryForm.addEventListener('submit', async (e) => {
 
     if (!num || isNaN(qty)) return;
 
-    await addOrUpdateItem(num, name, qty);
+    if (editingItemId) {
+        // Update existing item explicitly
+        const index = stockItems.findIndex(i => i.id === editingItemId);
+        if (index > -1) {
+            stockItems[index].number = num;
+            stockItems[index].name = name;
+            stockItems[index].qty = qty;
+            stockItems[index].synced = false;
+            
+            // Move to top since it was just edited
+            const editedItem = stockItems.splice(index, 1)[0];
+            stockItems.unshift(editedItem);
+            
+            await saveItems();
+            renderList();
+        }
+        editingItemId = null;
+    } else {
+        await addOrUpdateItem(num, name, qty);
+    }
 
     // Clear form and refocus
     inputNumber.value = '';
@@ -154,10 +174,10 @@ async function addOrUpdateItem(num, name, qty) {
         // Create new
         const newItem = {
             id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
-            ui_sn: stockItems.length + 1,
             number: num,
             name: name,
             qty: qty,
+            mrp: "",
             remarks: "",
             synced: false
         };
@@ -224,6 +244,7 @@ function renderList() {
             
             <div class="flex space-x-2">
                 <input type="number" value="${item.qty}" data-id="${item.id}" class="edit-qty w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-center font-bold focus:ring-1 focus:ring-blue-400 focus:outline-none">
+                <input type="text" value="${escapeHtml(item.mrp || '')}" data-id="${item.id}" placeholder="MRP" class="edit-mrp w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded focus:ring-1 focus:ring-blue-400 focus:outline-none text-sm">
                 <input type="text" value="${escapeHtml(item.remarks)}" data-id="${item.id}" placeholder="Remarks..." class="edit-remarks flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded focus:ring-1 focus:ring-blue-400 focus:outline-none text-sm">
             </div>
         `;
@@ -238,6 +259,14 @@ function renderList() {
             if (!isNaN(newQty)) {
                 await updateItemField(id, 'qty', newQty);
             }
+        });
+    });
+
+    document.querySelectorAll('.edit-mrp').forEach(input => {
+        input.addEventListener('change', async (e) => {
+            const id = e.target.dataset.id;
+            const newMrp = e.target.value;
+            await updateItemField(id, 'mrp', newMrp);
         });
     });
 
@@ -267,11 +296,8 @@ window.editItem = async (id) => {
         inputName.value = item.name;
         inputQty.value = item.qty;
         
-        // Remove item from list
-        stockItems.splice(index, 1);
-        await saveItems();
-        renderList();
-        inputQty.focus(); // Focus qty to let them finish editing quickly
+        editingItemId = id; // Set global flag so submit updates it
+        inputNumber.focus(); 
     }
 };
 
@@ -390,7 +416,7 @@ btnExport.addEventListener('click', async () => {
     }
 
     // CSV Headers
-    const headers = ["ID", "SN", "Number", "Name", "Qty", "Remarks", "Synced"];
+    const headers = ["ID", "Number/Code", "Brand/Design Name", "Qty", "MRP", "Remarks", "Synced"];
 
     // Convert data to CSV format
     const csvRows = [];
@@ -400,10 +426,10 @@ btnExport.addEventListener('click', async () => {
         // Escape quotes by doubling them, wrap in quotes if contains comma
         const row = [
             item.id,
-            item.ui_sn,
             `"${(item.number || '').replace(/"/g, '""')}"`,
             `"${(item.name || '').replace(/"/g, '""')}"`,
             item.qty,
+            `"${(item.mrp || '').replace(/"/g, '""')}"`,
             `"${(item.remarks || '').replace(/"/g, '""')}"`,
             item.synced
         ];
