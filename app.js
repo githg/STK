@@ -626,8 +626,8 @@ async function updateItemField(id, field, value) {
 
 // Utility to escape HTML and prevent XSS
 function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe
+    if (unsafe == null || unsafe === '') return '';
+    return String(unsafe)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
