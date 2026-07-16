@@ -15,6 +15,8 @@ const btnFullscreen = document.getElementById('btn-fullscreen');
 const btnSync = document.getElementById('btn-sync');
 const btnClose = document.getElementById('btn-close') || document.getElementById('btn-exit');
 const btnExport = document.getElementById('btn-export');
+const installContainer = document.getElementById('install-container');
+const btnInstall = document.getElementById('btn-install');
 const syncCountBadge = document.getElementById('sync-count');
 const entryForm = document.getElementById('entry-form');
 const inputNumber = document.getElementById('input-number');
@@ -56,6 +58,44 @@ async function initApp() {
         console.error("Error loading from localforage", err);
     }
 }
+
+// --- PWA INSTALLATION LOGIC ---
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    if (installContainer) {
+        installContainer.classList.remove('hidden');
+    }
+});
+
+if (btnInstall) {
+    btnInstall.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            // Show the install prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            // We've used the prompt, and can't use it again, throw it away
+            deferredPrompt = null;
+            installContainer.classList.add('hidden');
+        }
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    // Hide the app-provided install promotion
+    if (installContainer) {
+        installContainer.classList.add('hidden');
+    }
+    // Clear the deferredPrompt so it can be garbage collected
+    deferredPrompt = null;
+    console.log('PWA was installed');
+});
 
 // Show Toast
 function showToast(message, duration = 3000) {
