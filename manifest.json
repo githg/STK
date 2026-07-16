@@ -1,7 +1,9 @@
 {
   "name": "Stock Counter",
   "short_name": "Stock PWA",
-  "start_url": "./",
+  "start_url": "/STK/",
+  "scope": "/STK/",
+  "id": "/STK/",
   "display": "standalone",
   "background_color": "#1e293b",
   "theme_color": "#1e293b",
