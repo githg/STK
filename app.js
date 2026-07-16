@@ -140,6 +140,13 @@ if (btnClose) {
         initName.value = '';
         initDept.value = '';
         initRolls.checked = false;
+        
+        // Clear entry form memory
+        inputNumber.value = '';
+        inputName.value = '';
+        inputQty.value = '';
+        inputRolls.value = '';
+        
         renderRecentSessions();
         // Trigger background sync without awaiting
         performSync();
@@ -532,8 +539,15 @@ function updateSyncBadge() {
 // Render List
 function renderList() {
     itemList.innerHTML = '';
+    
+    const currentName = localStorage.getItem('session_name') || "";
+    const currentDept = localStorage.getItem('session_dept') || "";
 
-    stockItems.forEach((item, index) => {
+    const sessionItems = stockItems.filter(item => 
+        item.session_name === currentName && item.session_dept === currentDept
+    );
+
+    sessionItems.forEach((item, index) => {
         const itemDiv = document.createElement('div');
         itemDiv.className = "bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md relative overflow-hidden";
         if (editingItemId === item.id) {
