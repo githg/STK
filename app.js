@@ -427,6 +427,15 @@ if (btnLock) {
         } else {
             btnLock.classList.remove('bg-blue-100', 'border-blue-400', 'text-blue-700');
             btnLock.classList.add('bg-slate-50', 'border-slate-200', 'text-slate-400');
+            
+            // Clear textfields when unlocking as user will be entering a different code
+            inputNumber.value = '';
+            inputName.value = '';
+            inputQty.value = '';
+            if (localStorage.getItem('session_rolls') === 'true') {
+                inputRolls.value = '';
+            }
+            inputNumber.focus();
         }
     });
 }
@@ -488,8 +497,13 @@ entryForm.addEventListener('submit', async (e) => {
 
 // Core Logic: Add or Update Item (Aggregation)
 async function addOrUpdateItem(num, name, qty, rolls = 0) {
-    // Look for exact match (case insensitive)
+    const currentName = localStorage.getItem('session_name') || "";
+    const currentDept = localStorage.getItem('session_dept') || "";
+
+    // Look for exact match (case insensitive) IN CURRENT SESSION
     const matchIndex = stockItems.findIndex(item =>
+        item.session_name === currentName && 
+        item.session_dept === currentDept &&
         String(item.number).toLowerCase() === String(num).toLowerCase() &&
         String(item.name || "").toLowerCase() === String(name || "").toLowerCase()
     );
@@ -512,15 +526,15 @@ async function addOrUpdateItem(num, name, qty, rolls = 0) {
         // Create new
         const newItem = {
             id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
+            session_name: currentName,
+            session_dept: currentDept,
             number: num,
             name: name,
             qty: qty,
             rolls: isRollsEnabled ? rolls : "",
             mrp: "",
             remarks: "",
-            synced: false,
-            session_name: localStorage.getItem('session_name') || "",
-            session_dept: localStorage.getItem('session_dept') || ""
+            synced: false
         };
         stockItems.unshift(newItem);
     }
