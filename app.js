@@ -126,6 +126,14 @@ function showMainApp(name, dept) {
     headerSession.textContent = `${name} | ${dept}`;
     viewInit.classList.add('hidden');
     viewMain.classList.remove('hidden');
+    
+    // Allow decimals in QTY only if Thaan counter is enabled
+    if (localStorage.getItem('session_rolls') === 'true') {
+        inputQty.setAttribute('step', 'any');
+    } else {
+        inputQty.removeAttribute('step');
+    }
+    
     inputNumber.focus();
     renderList();
     updateSyncBadge();
@@ -618,7 +626,7 @@ function renderList() {
                 </div>
                 <div class="flex items-center space-x-2 sm:space-x-3 ml-2 shrink-0">
                     <div class="flex flex-col items-end">
-                        <input type="number" class="text-right block w-20 text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-blue-400 rounded px-1 focus:outline-none transition-colors" value="${item.qty}" onchange="updateCoreField('${item.id}', 'qty', parseInt(this.value, 10), ${item.qty})">
+                        <input type="number" ${isRollsEnabled ? 'step="any"' : ''} class="text-right block w-20 text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none bg-transparent border border-transparent hover:bg-slate-50 hover:border-slate-200 focus:bg-white focus:border-blue-400 rounded px-1 focus:outline-none transition-colors" value="${item.qty}" onchange="updateCoreField('${item.id}', 'qty', parseFloat(this.value), ${item.qty})">
                         <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1 pr-1">Qty</span>
                     </div>
                     <button class="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400" onclick="duplicateItem('${escapeHtml(item.number)}', '${escapeHtml(item.name || '')}')" title="Copy Item">
